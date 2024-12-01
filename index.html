@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- No cache -->
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <title>ICC DOWN</title>
+
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-V18BB36XSC"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-V18BB36XSC", { debug_mode: false });
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        padding: 0;
+        background-color: #f6f6f6;
+      }
+      h1 {
+        text-align: center;
+        color: #111111;
+        /* text-shadow: #010101aa 0 0 20px; */
+      }
+      .input-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+      input[type="text"] {
+        width: 300px;
+        padding: 10px;
+        margin-right: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button {
+        padding: 10px 15px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      .downloaded-list {
+        margin: 0 auto;
+        padding: 10px;
+
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .list-item {
+        width: 18dvw;
+        height: 18dvw;
+
+        /* background-color: #a3a3a3; */
+        /* background-blend-mode: multiply; */
+        border: 1px solid #ddd;
+        border-radius: 4px;
+
+        transition: box-shadow 0.15s;
+
+        padding: 0;
+
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: end;
+        cursor: pointer;
+
+        font-size: 1dvw;
+        color: white;
+
+        overflow: hidden;
+        background-size: contain;
+
+        &::after {
+          content: "";
+          position: absolute;
+          width: 18dvw;
+          height: 18dvw;
+          z-index: 3;
+          backdrop-filter: blur(2px) saturate(80%) brightness(60%);
+          /* background-color: #f00a; */
+        }
+
+        & > * {
+          z-index: 4;
+        }
+
+        &:has(div:hover)::after,
+        &:hover::after {
+          backdrop-filter: blur(0px) saturate(100%) brightness(90%);
+        }
+
+        & > div:first-child {
+          display: flex;
+          justify-content: flex-end;
+          width: calc(100% - 2dvw);
+          padding: 1dvw;
+        }
+
+        & > div:last-child {
+          width: calc(100% - 2dvw);
+          padding: 1dvw;
+
+          background: linear-gradient(
+            rgba(0, 0, 0, 0),
+            40%,
+            rgb(0, 0, 0, 0.95)
+          );
+
+          & > p {
+            font-size: smaller;
+          }
+        }
+      }
+      .list-item:hover {
+        box-shadow: #000a 0 0 20px;
+      }
+      .delete-button {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+
+        transition: background-color 0.1s, box-shadow 0.1s;
+      }
+      .delete-button:hover {
+        background-color: #ff717f;
+        box-shadow: #ff6372aa 0 0 10px;
+      }
+      #background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        filter: blur(500px);
+        z-index: -1;
+      }
+      .blob {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 10%;
+        height: 10%;
+        background: #fe782b;
+        z-index: 10;
+
+        border-radius: 50%;
+
+        mix-blend-mode: screen;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="background"></div>
+    <h1>ICC DOWN Ver 0.1b</h1>
+    <div style="width: 100%; text-align: center">
+      <p>Tip: 동시에 여러 다운을 하는 것은 고려하지 않았습니다.</p>
+    </div>
+    <div class="input-container">
+      <input type="text" id="urlInput" placeholder="URL을 입력해주세요" />
+      <button onclick="downloadWebsite()">다운로드</button>
+    </div>
+    <!-- <ul id="downloadedList" class="downloaded-list"></ul> -->
+    <div id="downloadedList" class="downloaded-list"></div>
+    <script type="text/javascript">
+      // Animation background
+      const background = document.getElementById("background");
+
+      Array.from({ length: 0 }).forEach(() => {
+        const blob = document.createElement("div");
+
+        blob.className = "blob";
+        // blob.style.left = `${Math.random() * 100}vw`;
+        // blob.style.top = `${Math.random() * 100}vh`;
+
+        // blob.style.width = `${(Math.random() / 2 + 0.5) * 50}vw`;
+        // blob.style.height = blob.style.width;
+
+        // blob.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+
+        // // animation using js
+        // const randomX = Math.random() * 100;
+        // const randomY = Math.random() * 100;
+
+        // const animation = blob.animate(
+        //   [
+        //     {
+        //       transform: `translate(-50%, -50%) translate(${randomX}vw, ${randomY}vh) scale(1)`,
+        //     },
+        //     {
+        //       transform: `translate(-50%, -50%) translate(${randomX}vw, ${randomY}vh) scale(1.5)`,
+        //     },
+        //     {
+        //       transform: `translate(-50%, -50%) translate(${randomX}vw, ${randomY}vh) scale(1)`,
+        //     },
+        //   ],
+        //   {
+        //     duration: (Math.random() + 1) * 2000,
+        //     iterations: Infinity,
+        //     timing: "ease-in-out",
+        //   }
+        // );
+
+        background.appendChild(blob);
+      });
+    </script>
+    <script>
+      // If closed, send to the server
+      // window.onbeforeunload = () => {
+      //   fetch("/api/close", { method: "POST" });
+      // };
+      // window.onunload = () => {
+      //   fetch("/api/close", { method: "POST" });
+      // };
+      // window.onclose = () => {
+      //   fetch("/api/close", { method: "POST" });
+      // };
+
+      // If enter key is pressed, download the website
+      document.getElementById("urlInput").addEventListener("keyup", (event) => {
+        // If the input field is focused and the user presses enter key
+        if (event.target !== document.getElementById("urlInput")) return;
+
+        if (event.key === "Enter") {
+          downloadWebsite();
+        }
+      });
+
+      async function fetchDownloadedList(returnData = false) {
+        try {
+          const response = await fetch("/api/download");
+          //   console.log(await response.text());
+          const downloadedList = await response.json();
+
+          if (returnData) return downloadedList;
+
+          renderDownloadedList(downloadedList);
+        } catch (error) {
+          console.error("Failed to fetch downloaded list:", error);
+          alert("Server offline. Please try again later.");
+        }
+      }
+
+      function renderDownloadedList(list) {
+        const downloadedList = document.getElementById("downloadedList");
+        downloadedList.innerHTML = "";
+
+        for (let item of list.sort(
+          (a, b) =>
+            -new Date(b.downloaded_date).getTime() +
+            new Date(a.downloaded_date).getTime()
+        )) {
+          renderDownloadElement(item);
+        }
+      }
+
+      function renderDownloadElement(elementData) {
+        const downloadedList = document.getElementById("downloadedList");
+        // const listItem = document.createElement("li");
+        const listItem = document.createElement("div");
+
+        listItem.style.backgroundImage = `url(${elementData.thumbnail})`;
+        listItem.className = "list-item";
+        listItem.innerHTML = `
+                    <div>
+                      <button class="delete-button" onclick="deleteWebsite('${
+                        elementData.folder
+                      }')">
+                      삭제
+                      </button>
+                      </div>
+                    <div>
+                        <strong>${elementData.title}</strong>
+                        <p>${elementData.original_url}</p>
+                        <!-- <p>${elementData.projectType}</p> -->
+                        <small>${new Date(
+                          elementData.downloaded_date
+                        ).toLocaleString()}</small>
+                    </div>
+                `;
+        listItem.onclick = () => {
+          // Check whether clicked item is delete button or not
+          if (event.target.classList.contains("delete-button")) return;
+
+          gtag("event", "start_play", {
+            target_url: elementData.url,
+            version: "0.1b",
+          });
+
+          window.open(elementData.url, "_blank");
+        };
+        downloadedList.prepend(listItem);
+      }
+
+      async function downloadWebsite() {
+        const urlInput = document.getElementById("urlInput");
+        const url = urlInput.value.trim();
+
+        if (!url) {
+          alert("Please enter a valid URL.");
+          return;
+        }
+        // Empty the input field
+        urlInput.value = "";
+
+        gtag("event", "start_download", {
+          target_url: url,
+          version: "0.1b",
+        });
+
+        try {
+          // Create loading spinner
+          const listItem = document.createElement("li");
+          listItem.style.backgroundColor = "#0002";
+          listItem.className = "list-item";
+          listItem.style.background = style = "url('src/waiting.gif')";
+          listItem.innerHTML = `
+                <div></div>
+                    <div>
+                        <strong>Downloading...</strong>
+                        <p>${url}</p>
+                    </div>
+                `;
+          document.getElementById("downloadedList").prepend(listItem);
+
+          // Animation for loading
+          const loading = listItem.querySelector("div:last-child");
+          let dots = 0;
+          const interval = setInterval(() => {
+            dots = (dots + 1) % 4;
+            loading.querySelector(
+              "strong"
+            ).textContent = `Downloading${".".repeat(dots)}`;
+          }, 500);
+
+          const f = fetch(`/api/download/${encodeURIComponent(url)}`, {
+            method: "POST",
+          });
+
+          const response = await f;
+          clearInterval(interval);
+          if (response.status === 201) {
+            // alert("Download successful!");
+            fetchDownloadedList();
+          } else {
+            alert("Failed to download the website.");
+          }
+        } catch (error) {
+          console.error("Failed to download website:", error);
+          alert("An error occurred while downloading the website.");
+        }
+        urlInput.value = "";
+      }
+
+      async function deleteWebsite(folder) {
+        if (!confirm(`정말로 ${folder} 쵸아를 삭제하시겠습니까?`)) return;
+        try {
+          const response = await fetch(
+            `/api/download/${encodeURIComponent(folder)}`,
+            { method: "DELETE" }
+          );
+          if (response.status === 200) {
+            // alert("Website deleted successfully!");
+            fetchDownloadedList();
+          } else {
+            alert("Failed to delete the website.");
+          }
+        } catch (error) {
+          console.error("Failed to delete website:", error);
+          alert("An error occurred while deleting the website.");
+        }
+      }
+
+      // Load the list on page load
+      fetchDownloadedList();
+    </script>
+  </body>
+</html>
