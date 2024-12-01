@@ -1,5 +1,5 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-import webbrowser
+from webbrowser import open as webbrowser_open
 import json
 import os
 import re
@@ -16,6 +16,9 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
 
                 # Decode URL
                 url = url.replace('%3A', ':').replace('%2F', '/')
+                
+                if not url.endswith('/'):
+                    url += '/'
 
                 download(url)
                 self.send_response(201)
@@ -166,7 +169,7 @@ def getTitle(folder):
     # Get title from html
     ## Read index.html
     try:
-        with open(f'downloads/{folder}/index.html', 'r') as f:
+        with open(f'downloads/{folder}/index.html', 'r', encoding='utf-8') as f:
             html = f.read()
         start = html.find('<title>') + len('<title>')
         end = html.find('</title>')
@@ -180,7 +183,7 @@ def getTitle(folder):
     
     # Get title from project.json
     try:
-        with open(f'downloads/{folder}/project.json', 'r') as f:
+        with open(f'downloads/{folder}/project.json', 'r', encoding='utf-8') as f:
             # data = json.load(f)
             data = f.read()
         
@@ -205,7 +208,7 @@ def main(port = 8012, open_browser = True):
         print('Invalid port number. Please use a port between 1024 and 49151.')
         return
 
-    if(open_browser): webbrowser.open(f'http://127.0.0.1:{port}', new=2)
+    if(open_browser): webbrowser_open(f'http://127.0.0.1:{port}', new=2)
 
     # Open server
     try:

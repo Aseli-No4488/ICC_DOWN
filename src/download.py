@@ -1,8 +1,8 @@
 import os
-import requests
+from requests import get
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-import datetime
+from datetime import datetime
 
 import re
 from tqdm import tqdm
@@ -28,7 +28,7 @@ class Logger:
         if not os.path.exists(self.path):
             with open(self.path, 'w') as f:
                 f.write(f'Version:{version}\n')
-                f.write(f"Created:{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Created:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     
     def writeline(self, text):
         # Wait for the file to be available
@@ -65,7 +65,7 @@ def download_html(url, folder_name, logger:Logger):
     logger.writeline(f"Folder:{folder_name}")
 
     # Download the main HTML file
-    response = requests.get(url)
+    response = get(url)
     if response.status_code != 200:
         print(f"Failed to download {url}")
         logger.writeline(f"Error:Failed to download html {response.status_code}")
@@ -90,7 +90,7 @@ def download_html(url, folder_name, logger:Logger):
 
                 try:
                     # Download the linked file
-                    file_response = requests.get(full_url)
+                    file_response = get(full_url)
                     if file_response.status_code == 200:
                         with open(local_path, 'wb') as f:
                             f.write(file_response.content)
@@ -107,6 +107,13 @@ def download_html(url, folder_name, logger:Logger):
                     logger.writeline(f"Error:Failed to download {file_url}")
     
     # Find all external fonts
+    texts = []
+    
+    # Find all style tags in the HTML
+    for element in soup.find_all('style'):
+        texts.append(element.text)
+    
+    
     for element in soup.find_all('style'):
         for font in re.findall(r'url\(([^)]+)\)', element.text):
             font = font.strip().strip('"').strip("'")
@@ -123,7 +130,7 @@ def download_html(url, folder_name, logger:Logger):
 
             try:
                 # Download the font file
-                file_response = requests.get(download_url)
+                file_response = get(download_url)
                 if file_response.status_code == 200:
                     with open(local_path, 'wb') as f:
                         f.write(file_response.content)
@@ -142,9 +149,54 @@ def download_html(url, folder_name, logger:Logger):
                 print(f"Error downloading {font}: {e}")
                 logger.writeline(f"Error:Failed to download {font}")
     
+    # # Find all external CSS files
+    # for element in [i for i in os.listdir(src_folder) if i.endswith('.css')]:
+    #     with open(f'{src_folder}/{element}', 'r', encoding='utf-8') as f:
+    #         text = f.read()
+        
+    #     for font in re.findall(r'url\(([^)]+)\)', text):
+    #         font = font.strip().strip('"').strip("'")
+            
+    #         # If .. is used, handle it
+    #         while font.startswith('..'):
+    #             font = font[3:]
+                
+                
+            
+    #         # Get the filename from the URL
+    #         filename = os.path.basename(urlparse(font).path)
+
+    #         # Define the local path
+    #         local_path = os.path.join(src_folder, filename)
+
+    #         download_url = font
+    #         # Check if the font is local
+    #         if not font.startswith('http'):
+    #             download_url = urljoin(url, font)
+
+    #         try:
+    #             # Download the font file
+    #             file_response = get(download_url)
+    #             if file_response.status_code == 200:
+    #                 with open(local_path, 'wb') as f:
+    #                     f.write(file_response.content)
+    #                 print(f"Downloaded {filename}")
+    #                 logger.writeline(f"Downloaded:{filename}")
+                    
+    #                 # Update the link in the HTML
+    #                 text = text.replace(font, f'src/{filename}')
+    #                 with open(f'{src_folder}/{element}', 'w', encoding='utf-8') as f:
+    #                     f.write(text)
+    #             else:
+    #                 print(f"Failed to download {font}")
+    #                 logger.writeline(f"Error:Failed to download {font}")
+    #         except Exception as e:
+    #             print(f"Error downloading {font}: {e}")
+    #             logger.writeline(f"Error:Failed to download {font}")
+    
     # Inject js to the end of the body
-    with open('src/inject.html', 'r') as f:
-        script = f.read()
+    from .utils import get_inject_script
+    script = get_inject_script()
     
     ## Mapping
     script = script.replace('__target_url__', url.strip())
@@ -183,7 +235,7 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
 
     # Fetch project.json
     print("\nfetching project.json from: ", url)
-    res = requests.get(url)
+    res = get(url)
     
     if(not res.status_code == 200):
         print("Failed to fetch project.json")
@@ -223,7 +275,7 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
             
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'wb', ) as f:
-                f.write(requests.get(img_url).content)
+                f.write(get(img_url).content)
         
         # Convert to webp
         print("Converting images to webp...")
