@@ -10,17 +10,13 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         print(self.path)
         if self.path.startswith('/api/download'):
-            self.send_response(201)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            return self
             try:
                 url = self.path.split('/')[-1]
 
                 # Decode URL
                 url = url.replace('%3A', ':').replace('%2F', '/')
 
-                folder = download(url)
+                download(url)
                 self.send_response(201)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
@@ -110,7 +106,11 @@ def parse_log(lines, text, undefined = ''):
     return undefined
 
 def get_download_list():
-    folder_list = os.listdir('downloads')
+    try:
+        folder_list = os.listdir('downloads')
+    except:
+        os.mkdir('downloads')
+        folder_list = []
     result = []
 
 
