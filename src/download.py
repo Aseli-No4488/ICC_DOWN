@@ -142,6 +142,19 @@ def download_html(url, folder_name, logger:Logger):
                 print(f"Error downloading {font}: {e}")
                 logger.writeline(f"Error:Failed to download {font}")
     
+    # Inject js to the end of the body
+    with open('src/inject.html', 'r') as f:
+        script = f.read()
+    
+    ## Mapping
+    script = script.replace('__target_url__', url.strip())
+    script = script.replace('__version__', version)
+        
+    body = soup.find('body')
+    if body:
+        body.append(BeautifulSoup(script, 'html.parser'))
+    
+    
     # Save the modified HTML
     html_path = os.path.join(folder_name, 'index.html')
     with open(html_path, 'w', encoding='UTF-8') as f:

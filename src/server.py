@@ -5,6 +5,7 @@ import os
 import re
 from .download import main as download, Logger
 from random import sample
+from shutil import rmtree
 
 class HTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
@@ -45,7 +46,8 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
         if self.path.startswith('/api/download'):
             folder = self.path.split('/')[-1]
             try:
-                os.system(f'rm -rf downloads/{folder}')
+                rmtree(f'downloads/{folder}')
+                
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
@@ -84,7 +86,13 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
         #     self.path = "/src/main/index.html"
         
         # Default to serving files
-        return SimpleHTTPRequestHandler.do_GET(self)
+        try:
+            return SimpleHTTPRequestHandler.do_GET(self)
+        except:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b'404 Not Found')
 
     def handleAPI(self):
         self.send_response(200)
