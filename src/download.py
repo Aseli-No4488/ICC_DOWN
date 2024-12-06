@@ -20,23 +20,23 @@ from .ICC_UP import icc_up
 from time import sleep
 
 
-def save_webpage(url,
-              project_folder=None,
-              project_name=None,
-              bypass_robots=None,
-              debug=False,
-              delay=None,
-              threaded=None,):
+# def save_webpage(url,
+#               project_folder=None,
+#               project_name=None,
+#               bypass_robots=None,
+#               debug=False,
+#               delay=None,
+#               threaded=None,):
     
     
-    config = get_config(url, project_folder, project_name, bypass_robots, debug, delay, threaded)
-    page = config.create_page()
-    page.get(url, headers={'User-Agent': 'Mozilla/5.0',}, encoding='utf-8')
-    if threaded:
-        warnings.warn(
-            "Opening in browser is not supported when threading is enabled!")
-        open_in_browser = False
-    page.save_complete(pop=False)
+#     config = get_config(url, project_folder, project_name, bypass_robots, debug, delay, threaded)
+#     page = config.create_page()
+#     page.get(url, headers={'User-Agent': 'Mozilla/5.0',}, encoding='utf-8')
+#     if threaded:
+#         warnings.warn(
+#             "Opening in browser is not supported when threading is enabled!")
+#         open_in_browser = False
+#     page.save_complete(pop=False)
     
 
 class Logger:
