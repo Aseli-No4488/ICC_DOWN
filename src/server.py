@@ -12,7 +12,7 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
         print(self.path)
         if self.path.startswith('/api/download'):
             try:
-                url = self.path.split('/')[-1]
+                url = self.path.split('/api/download/')[-1]
 
                 # Decode URL
                 url = url.replace('%3A', ':').replace('%2F', '/')
@@ -20,6 +20,7 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
                 if not url.endswith('/'):
                     url += '/'
 
+                print(f"[Server] Downloading {url}")
                 download(url)
                 self.send_response(201)
                 self.send_header('Content-type', 'application/json')
@@ -48,8 +49,11 @@ class HTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         if self.path.startswith('/api/download'):
             folder = self.path.split('/')[-1]
+            
+            # Decode URL
+            folder = folder.replace('%3A', ':').replace('%2F', '/')
             try:
-                rmtree(f'downloads/{folder}')
+                rmtree(os.path.join('downloads', folder))
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -127,22 +131,26 @@ def get_download_list():
 
     for folder in folder_list:
         try:
-            with open(f'downloads/{folder}/log.txt', 'r') as f:
+            with open(os.path.join('downloads', folder, 'log.txt'), 'r') as f:
                 lines = f.readlines()
         except: continue
 
-        url = parse_log(lines, 'URL')
+        original_url = parse_log(lines, 'URL')
+        
+        html_url = parse_log(lines, 'HTML').replace('\\', '/')
+        project_folder = os.path.dirname(html_url).replace('\\', '/')
+                
         created = parse_log(lines, 'Created')
         projectType = parse_log(lines, 'ProjectType', 'Unknown')
 
         result.append({
-            'title': getTitle(folder),
-            'url': f'/downloads/{folder}/index.html',
-            'original_url': url,
+            'title': getTitle(project_folder),
+            'url': html_url,
+            'original_url': original_url,
             'downloaded_date': created,
             'projectType': projectType,
             'folder': folder,
-            'thumbnail': getMainImage(folder)
+            'thumbnail': getMainImage(project_folder)
         })
     
     return result
@@ -150,17 +158,16 @@ def get_download_list():
 def getMainImage(folder):
     try:
         # Just grap first image
-        listImage = os.listdir(f'downloads/{folder}/img')
-
+        listImage = os.listdir(os.path.join(folder, 'img'))
         # If theres thumbnail_img, use that
         thumbnail_imgs = [i for i in listImage if i.startswith('thumbnail_')]
         if len(thumbnail_imgs) > 0:
             # Randomly select one
-            return f'/downloads/{folder}/img/{sample(thumbnail_imgs, 1)[0]}'
+            return os.path.join(folder, 'img', sample(thumbnail_imgs, 1)[0]).replace('\\', '/')
 
-
-        return f'/downloads/{folder}/img/{listImage[0]}' if len(listImage) > 0 else None
-    except:
+        return os.path.join(folder, 'img', listImage[0]).replace('\\', '/') if len(listImage) > 0 else None
+    except Exception as e:
+        print(e)
         return None
 
 
@@ -169,7 +176,7 @@ def getTitle(folder):
     # Get title from html
     ## Read index.html
     try:
-        with open(f'downloads/{folder}/index.html', 'r', encoding='utf-8') as f:
+        with open(os.path.join(folder, 'index.html'), 'r', encoding='utf-8') as f:
             html = f.read()
         start = html.find('<title>') + len('<title>')
         end = html.find('</title>')
@@ -183,8 +190,7 @@ def getTitle(folder):
     
     # Get title from project.json
     try:
-        with open(f'downloads/{folder}/project.json', 'r', encoding='utf-8') as f:
-            # data = json.load(f)
+        with open(os.path.join(folder, 'project.json'), 'r', encoding='utf-8') as f:
             data = f.read()
         
         title = re.findall(r'".{0,10}? CYOA.{0,10}?"', data)

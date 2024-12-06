@@ -1,8 +1,14 @@
 import os
 from requests import get
+from pywebcopy import save_webpage
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
+
+from pywebcopy.configs import default_config
+from pywebcopy.configs import get_config
+default_config["encoding"] = "utf-8"
+
 
 import re
 from tqdm import tqdm
@@ -12,6 +18,26 @@ from PIL import Image
 from .utils import string_to_path, version, convert_to, lbp_anime_face_detect
 from .ICC_UP import icc_up
 from time import sleep
+
+
+def save_webpage(url,
+              project_folder=None,
+              project_name=None,
+              bypass_robots=None,
+              debug=False,
+              delay=None,
+              threaded=None,):
+    
+    
+    config = get_config(url, project_folder, project_name, bypass_robots, debug, delay, threaded)
+    page = config.create_page()
+    page.get(url, headers={'User-Agent': 'Mozilla/5.0',}, encoding='utf-8')
+    if threaded:
+        warnings.warn(
+            "Opening in browser is not supported when threading is enabled!")
+        open_in_browser = False
+    page.save_complete(pop=False)
+    
 
 class Logger:
     def __init__(self, folder_name, null_logger = False):
@@ -50,149 +76,34 @@ class Logger:
             except:
                 sleep(0.1)
                 continue
+    def readTag(self, tag):
+        # Wait for the file to be available
+        for i in range(10):
+            try:
+                with open(self.path, 'r') as f:
+                    for line in f.readlines():
+                        if line.startswith(tag):
+                            return line.split(':')[1].strip()
+                return None
+            except:
+                sleep(0.1)
+                continue
+
 
 def download_html(url, folder_name, logger:Logger):
-    src_folder = folder_name + '/src'
-    
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
-
-    if not os.path.exists(src_folder):
-        os.makedirs(src_folder)
+    
+    abs_path = os.path.abspath(folder_name)
+    abs_folder_path = abs_path.split('/')[:-1]
+    abs_folder_name = abs_path.split('/')[-1]
     
     # Add log file
     logger.writeline(f"URL:{url}")
     logger.writeline(f"Folder:{folder_name}")
 
     # Download the main HTML file
-    response = get(url)
-    if response.status_code != 200:
-        print(f"Failed to download {url}")
-        logger.writeline(f"Error:Failed to download html {response.status_code}")
-        return
-    
-    logger.writeline(f"log:{url}")
-    soup = BeautifulSoup(response.content.decode('utf-8','ignore'), 'html.parser')
-    
-    # Find and download all linked files (CSS and JS)
-    for tag, attribute in [('link', 'href'), ('script', 'src')]:
-        for element in soup.find_all(tag):
-            file_url = element.get(attribute)
-            if file_url:
-                # Resolve the full URL
-                full_url = urljoin(url, file_url)
-
-                # Get the filename from the URL
-                filename = os.path.basename(urlparse(full_url).path)
-
-                # Define the local path
-                local_path = os.path.join(src_folder, filename)
-
-                try:
-                    # Download the linked file
-                    file_response = get(full_url)
-                    if file_response.status_code == 200:
-                        with open(local_path, 'wb') as f:
-                            f.write(file_response.content)
-                        print(f"Downloaded {filename}")
-                        logger.writeline(f"Downloaded:{filename}")
-                        
-                        # Update the link in the HTML
-                        element[attribute] = f'src/{filename}'
-                    else:
-                        print(f"Failed to download {full_url}")
-                        logger.writeline(f"Error:Failed to download {full_url}")
-                except Exception as e:
-                    print(f"Error downloading {file_url}: {e}")
-                    logger.writeline(f"Error:Failed to download {file_url}")
-    
-    # Find all external fonts
-    texts = []
-    
-    # Find all style tags in the HTML
-    for element in soup.find_all('style'):
-        texts.append(element.text)
-    
-    
-    for element in soup.find_all('style'):
-        for font in re.findall(r'url\(([^)]+)\)', element.text):
-            font = font.strip().strip('"').strip("'")
-            # Get the filename from the URL
-            filename = os.path.basename(urlparse(font).path)
-
-            # Define the local path
-            local_path = os.path.join(src_folder, filename)
-
-            download_url = font
-            # Check if the font is local
-            if not font.startswith('http'):
-                download_url = urljoin(url, font)
-
-            try:
-                # Download the font file
-                file_response = get(download_url)
-                if file_response.status_code == 200:
-                    with open(local_path, 'wb') as f:
-                        f.write(file_response.content)
-                    print(f"Downloaded {filename}")
-                    logger.writeline(f"Downloaded:{filename}")
-                    
-                    # print("test", element.text, font, f'src/{filename}')
-                    # Update the link in the HTML
-                    # element.text = element.text.replace(font, f'src/{filename}') # This doesn't work
-                    element.string = element.string.replace(font, f'src/{filename}').replace('src/src/', 'src/')
-
-                else:
-                    print(f"Failed to download {font}")
-                    logger.writeline(f"Error:Failed to download {font}")
-            except Exception as e:
-                print(f"Error downloading {font}: {e}")
-                logger.writeline(f"Error:Failed to download {font}")
-    
-    # # Find all external CSS files
-    # for element in [i for i in os.listdir(src_folder) if i.endswith('.css')]:
-    #     with open(f'{src_folder}/{element}', 'r', encoding='utf-8') as f:
-    #         text = f.read()
-        
-    #     for font in re.findall(r'url\(([^)]+)\)', text):
-    #         font = font.strip().strip('"').strip("'")
-            
-    #         # If .. is used, handle it
-    #         while font.startswith('..'):
-    #             font = font[3:]
-                
-                
-            
-    #         # Get the filename from the URL
-    #         filename = os.path.basename(urlparse(font).path)
-
-    #         # Define the local path
-    #         local_path = os.path.join(src_folder, filename)
-
-    #         download_url = font
-    #         # Check if the font is local
-    #         if not font.startswith('http'):
-    #             download_url = urljoin(url, font)
-
-    #         try:
-    #             # Download the font file
-    #             file_response = get(download_url)
-    #             if file_response.status_code == 200:
-    #                 with open(local_path, 'wb') as f:
-    #                     f.write(file_response.content)
-    #                 print(f"Downloaded {filename}")
-    #                 logger.writeline(f"Downloaded:{filename}")
-                    
-    #                 # Update the link in the HTML
-    #                 text = text.replace(font, f'src/{filename}')
-    #                 with open(f'{src_folder}/{element}', 'w', encoding='utf-8') as f:
-    #                     f.write(text)
-    #             else:
-    #                 print(f"Failed to download {font}")
-    #                 logger.writeline(f"Error:Failed to download {font}")
-    #         except Exception as e:
-    #             print(f"Error downloading {font}: {e}")
-    #             logger.writeline(f"Error:Failed to download {font}")
+    save_webpage(url, abs_folder_path, project_name=abs_folder_name, bypass_robots=True, open_in_browser=False, debug=True)
     
     # Inject js to the end of the body
     from .utils import get_inject_script
@@ -201,14 +112,20 @@ def download_html(url, folder_name, logger:Logger):
     ## Mapping
     script = script.replace('__target_url__', url.strip())
     script = script.replace('__version__', version)
+    
+    # Load the HTML file
+    html_path = os.path.join(folder_name, url.replace('https://', '').replace('http://', ''), 'index.html')
+    with open(html_path, 'r', encoding='UTF-8') as f:
+        html = f.read()
         
+    soup = BeautifulSoup(html, 'html.parser')
     body = soup.find('body')
     if body:
         body.append(BeautifulSoup(script, 'html.parser'))
     
     
     # Save the modified HTML
-    html_path = os.path.join(folder_name, 'index.html')
+    html_path = os.path.join(html_path)
     with open(html_path, 'w', encoding='UTF-8') as f:
         f.write(str(soup))
 
@@ -218,7 +135,15 @@ def download_html(url, folder_name, logger:Logger):
 
 
 
-def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
+def download_project(url, logger:Logger, run_ICC_UP = False):
+    
+    HTML = logger.readTag("HTML").replace("index.html", "")
+    if HTML == None:
+        print("HTML not found")
+        logger.writeline(f"Error:HTML not found")
+        return
+    
+    folder_name = os.path.dirname(HTML)
     
     logger.writeline(f"ProjectType:ICC")
     logger.writeline(f"RunICC_UP:{run_ICC_UP}")
@@ -246,7 +171,7 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
 
     # Save project.json
     os.makedirs(folder_name, exist_ok=True)
-    file_path = f'{folder_name}/project.json'
+    file_path = os.path.join(folder_name, 'project.json')
     
     with open(file_path, 'w', encoding='utf8') as f:
         f.write(res.text)
@@ -266,8 +191,8 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
         print(f"Downloading {len(l)} images...")
 
         for img in tqdm(l):
-            img_url = f"{url.replace('project.json', '')}{img}"
-            path = f"{folder_name}/{img}"
+            img_url = os.path.join(os.path.dirname(url), img).replace("\\", "/")
+            path = os.path.join(folder_name, img)
             
             # Check if the image already exists 
             if os.path.exists(path) or any([os.path.exists(path.replace(i, ".webp")) for i in [".jpg", ".jpeg", ".png", ".gif"]]):
@@ -275,12 +200,13 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
             
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'wb', ) as f:
+                print(img_url)
                 f.write(get(img_url).content)
         
         # Convert to webp
         print("Converting images to webp...")
         for img in tqdm(l):
-            path = f"{folder_name}/{img}"
+            path = os.path.join(folder_name, img)
             
             if path.endswith(".webp"):
                 continue
@@ -291,7 +217,7 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
                 print(f"Not found during converting", path)
 
         for img in l:
-            path = f"{folder_name}/{img}"
+            path = os.path.join(folder_name, img)
             
             if path.endswith(".webp"):
                 continue
@@ -304,21 +230,29 @@ def download_project(url, folder_name, logger:Logger, run_ICC_UP = False):
     # Run ICC_UP
     if run_ICC_UP:
         print("Running ICC_UP...")
-        try: icc_up(os.path.dirname(file_path), file_path)
+        try: icc_up(folder_name, file_path)
         except: 
             logger.writeline(f"Error:Failed to run ICC_UP")
             print("Failed to run ICC_UP")
         print("ICC_UP done!")
 
-def find_thumbnails(folder_name, logger:Logger, save_thumbnail = True):
+def find_thumbnails(logger:Logger, save_thumbnail = True):
     print("Finding thumbnails...")
     logger.writeline(f"Finding thumbnails...")
+    
+    HTML = logger.readTag("HTML").replace("index.html", "")
+    if HTML == None:
+        print("HTML not found")
+        logger.writeline(f"Error:HTML not found")
+        return
+    
+    folder_name = os.path.dirname(HTML)
 
     data = []
-    img_folder = folder_name + '/img'
+    img_folder = os.path.join(folder_name, 'img')
     try:
         for file_name in tqdm(os.listdir(img_folder)):
-            faces = lbp_anime_face_detect(img_folder + '/' + file_name)
+            faces = lbp_anime_face_detect(os.path.join(img_folder, file_name))
 
             # Just dealing with one face for now
             if len(faces[0]) >= 1:# and faces[2][0] > 1.0:
@@ -351,7 +285,7 @@ def find_thumbnails(folder_name, logger:Logger, save_thumbnail = True):
             continue
 
         # Save as thumbnail
-        thumbnail_path = folder_name + '/img/thumbnail_' + file_name
+        thumbnail_path = os.path.join(folder_name, 'img', 'thumbnail_' + file_name)
         with Image.open(img_folder + '/' + file_name) as img:
             img.crop((x, y, x+w, y+h)).save(thumbnail_path, 'webp')
 
@@ -374,7 +308,7 @@ def find_thumbnails(folder_name, logger:Logger, save_thumbnail = True):
                 continue
 
             # Save as thumbnail
-            thumbnail_path = folder_name + '/img/thumbnail_' + file_name
+            thumbnail_path = os.path.join(folder_name, 'img', 'thumbnail_' + file_name)
             with Image.open(img_folder + '/' + file_name) as img:
                 img.crop((x, y, x+w, y+h)).save(thumbnail_path, 'webp')
 
@@ -382,26 +316,19 @@ def find_thumbnails(folder_name, logger:Logger, save_thumbnail = True):
             logger.writeline(f"Thumbnail saved as {thumbnail_path}")
             count += 1
 
-
+    
 
 
 def main(url):
-    folder_name = 'downloads/' + string_to_path(url)
+    folder_name = os.path.join('downloads', string_to_path(url))
 
-    logger = Logger(folder_name)
-
+    logger = Logger(folder_name)    
+    
     download_html(url, folder_name, logger)
-    download_project(url, folder_name, logger, True)
-
-    find_thumbnails(folder_name, logger)
-
-
-
+    download_project(url, logger, True)
+    find_thumbnails(logger)
 
 
 if __name__ == '__main__':
-    # url = 'https://witchwitch.neocities.org/WizardingWorld/'
-    # url = input("Enter the URL of cyoa or path(folder): ")
-    # main(url)
-    
+    print("Please run this script as main.")
     pass
