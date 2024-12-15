@@ -25,10 +25,14 @@ let network = null;
 let data = null;
 
 function main(projectPath) {
-  const url = projectPath + "/project.json";
+  let url = projectPath + "/project.json";
+
+  if (url.startsWith("http")) {
+    url = "https://corsproxy.io/" + url;
+  }
 
   console.time("main");
-  fetch("https://corsproxy.io/" + url, {
+  fetch(url, {
     // method: "GET",
     // headers: {
     //   "Content-Type": "*",
