@@ -7,7 +7,7 @@ from PIL import Image
 # from sys import exit
 
 support_formats = ['webp', 'gif', 'png', 'jpg', 'jpeg']
-__version__ = "1.3b"
+__version__ = "1.3c"
 
 def convert_to(source, file_format = 'webp'):
     """Convert image to WebP.
@@ -21,8 +21,14 @@ def convert_to(source, file_format = 'webp'):
     
     destination = source.with_suffix(f".{file_format}")
 
-    image = Image.open(source)  # Open image
-    image.save(destination, format=file_format)  # Convert image to webp
+    try:
+        image = Image.open(source)  # Open image
+        image.save(destination, format=file_format)  # Convert image to webp
+    except Exception as e:
+        print(f"Error converting {source.name} to {file_format}: {e}")
+        
+        # If error, just rename the original file to webp
+        os.rename(source, destination)
     
     return destination
 
@@ -104,12 +110,13 @@ def icc_up(main_path, file, logger = None):
     ## Delete old image
     with alive_bar(len(file_list), title='Deleting old image...', bar='classic') as bar:
         for file in file_list:
-            
-            # Delete old image
-            if any([format in str(file) for format in support_formats]):
-            #if ('jpg' in str(file)) or ('jpeg' in str(file)) or ('png' in str(file)) or ('gif' in str(file)):
-                os.remove(file)
-                
+            try:
+                # Delete old image
+                if any([format in str(file) for format in support_formats]):
+                #if ('jpg' in str(file)) or ('jpeg' in str(file)) or ('png' in str(file)) or ('gif' in str(file)):
+                    os.remove(file)
+            except:
+                print(f"Error deleting {file}. Skip!")
             # Update progress bar
             bar()
         
