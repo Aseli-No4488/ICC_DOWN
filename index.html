@@ -62,6 +62,8 @@
         border: none;
         border-radius: 4px;
         cursor: pointer;
+
+        font-size: 0.5dvw;
       }
       button:hover {
         background-color: #0056b3;
@@ -74,10 +76,12 @@
         flex-direction: row;
         flex-wrap: wrap;
         gap: 10px;
+
+        justify-content: center;
       }
       .list-item {
-        width: 18dvw;
-        height: 18dvw;
+        width: 14dvw;
+        height: 14dvw;
 
         /* background-color: #a3a3a3; */
         /* background-blend-mode: multiply; */
@@ -94,7 +98,7 @@
         align-items: end;
         cursor: pointer;
 
-        font-size: 1dvw;
+        font-size: 0.7dvw;
         color: white;
 
         overflow: hidden;
@@ -103,8 +107,8 @@
         &::after {
           content: "";
           position: absolute;
-          width: 18dvw;
-          height: 18dvw;
+          width: 14dvw;
+          height: 14dvw;
           z-index: 3;
           backdrop-filter: blur(2px) saturate(80%) brightness(60%);
           /* background-color: #f00a; */
@@ -124,6 +128,7 @@
           justify-content: flex-end;
           width: calc(100% - 2dvw);
           padding: 1dvw;
+          gap: 0.5dvw;
         }
 
         & > div:last-child {
@@ -143,6 +148,20 @@
       }
       .list-item:hover {
         box-shadow: #000a 0 0 20px;
+      }
+      .button {
+        /*background-color: #23aadf;*/
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+
+        transition: background-color 0.1s, box-shadow 0.1s;
+      }
+      .button:hover {
+        background-color: #299bff;
+        box-shadow: #9efff2aa 0 0 10px;
       }
       .delete-button {
         background-color: #dc3545;
@@ -184,9 +203,9 @@
   </head>
   <body>
     <div id="background"></div>
-    <h1>ICC DOWN Ver 0.1b</h1>
+    <h1>ICC DOWN Ver X</h1>
     <div style="width: 100%; text-align: center">
-      <p>Tip: 동시에 여러 다운을 하는 것은 고려하지 않았습니다.</p>
+      <p>빌드는 창작을 부르는 창작이다.</p>
     </div>
     <div class="input-container">
       <input type="text" id="urlInput" placeholder="URL을 입력해주세요" />
@@ -249,6 +268,7 @@
       // };
 
       // If enter key is pressed, download the website
+      /*
       document.getElementById("urlInput").addEventListener("keyup", (event) => {
         // If the input field is focused and the user presses enter key
         if (event.target !== document.getElementById("urlInput")) return;
@@ -257,6 +277,7 @@
           downloadWebsite();
         }
       });
+      */
 
       async function fetchDownloadedList(returnData = false) {
         try {
@@ -277,10 +298,10 @@
         const downloadedList = document.getElementById("downloadedList");
         downloadedList.innerHTML = "";
 
-        for (let item of list.sort(
-          (a, b) =>
-            -new Date(b.downloaded_date).getTime() +
-            new Date(a.downloaded_date).getTime()
+        for (let item of list.sort((a, b) =>
+          //-new Date(b.downloaded_date).getTime() +
+          //new Date(a.downloaded_date).getTime()
+          b.original_url.localeCompare(a.original_url)
         )) {
           renderDownloadElement(item);
         }
@@ -293,17 +314,40 @@
 
         listItem.style.backgroundImage = `url(${elementData.thumbnail})`;
         listItem.className = "list-item";
+
+        let title = elementData.title;
+
+        if (elementData.fatal) {
+          title = "다운로드 실패";
+          //return;
+        }
+
+        if (elementData.tag.includes("HIDDEN")) {
+          console.log(`Hidden: ${elementData.folder}`);
+          return;
+        }
+
         listItem.innerHTML = `
                     <div>
-                      <button class="delete-button" onclick="deleteWebsite('${
+                      <button class="delete-button button" onclick="deleteWebsite('${
                         elementData.folder
                       }')">
                       삭제
                       </button>
-                      </div>
+                      <button class="hide-button button" onclick="tagWebsite('${
+                        elementData.folder
+                      }', 'hide')">
+                      숨기기
+                      </button>
+                    <button class='button' onclick="window.open('https://arca.live/b/cyoa/${
+                      elementData.interactive.index
+                    }')">게시글</button>
+                    </div>
                     <div>
-                        <strong>${elementData.title}</strong>
-                        <p>${elementData.original_url}</p>
+                        <strong>${title}</strong>
+                        <p class='link'><a class='link' style="color:white;cursor:pointer;" href="${
+                          elementData.original_url
+                        }">${elementData.original_url}</a><p>
                         <!-- <p>${elementData.projectType}</p> -->
                         <small>${new Date(
                           elementData.downloaded_date
@@ -312,7 +356,8 @@
                 `;
         listItem.onclick = () => {
           // Check whether clicked item is delete button or not
-          if (event.target.classList.contains("delete-button")) return;
+          if (event.target.classList.contains("button")) return;
+          if (event.target.classList.contains("link")) return;
 
           gtag("event", "start_play", {
             target_url: elementData.url,
@@ -326,12 +371,13 @@
 
       async function downloadWebsite() {
         const urlInput = document.getElementById("urlInput");
-        const url = urlInput.value.trim();
+        let url = urlInput.value.trim();
 
         if (!url) {
           alert("Please enter a valid URL.");
           return;
         }
+        url = decodeURIComponent(url);
         // Empty the input field
         urlInput.value = "";
 
@@ -382,6 +428,24 @@
           alert("An error occurred while downloading the website.");
         }
         urlInput.value = "";
+      }
+
+      async function tagWebsite(folder, tag) {
+        try {
+          const response = await fetch(
+            `/api/${tag}/${encodeURIComponent(folder)}`,
+            { method: "POST" }
+          );
+          if (response.status === 201) {
+            // alert("Website deleted successfully!");
+            fetchDownloadedList();
+          } else {
+            alert("Failed to tag the website.");
+          }
+        } catch (error) {
+          console.error("Failed to tag website:", error);
+          alert("An error occurred while tagging the website.");
+        }
       }
 
       async function deleteWebsite(folder) {

@@ -16,7 +16,7 @@ from tqdm import tqdm
 from pathlib import Path
 from PIL import Image
 
-from .utils import string_to_path, version, convert_to, lbp_anime_face_detect
+from .utils import string_to_path, version, convert_to, lbp_anime_face_detect, getDummyProject
 from .ICC_UP import icc_up
 from time import sleep
 
@@ -101,7 +101,7 @@ class Logger:
             os.makedirs(folder_name)
     
         if not os.path.exists(self.path):
-            with open(self.path, 'w') as f:
+            with open(self.path, 'w', encoding='utf-8') as f:
                 f.write(f'Version:{version}\n')
                 f.write(f"Created:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     
@@ -109,7 +109,7 @@ class Logger:
         # Wait for the file to be available
         for i in range(10):
             try:
-                with open(self.path, 'a') as f:
+                with open(self.path, 'a', encoding='utf-8') as f:
                     f.write(text + '\n')
                 break
             except:
@@ -120,7 +120,7 @@ class Logger:
         # Wait for the file to be available
         for i in range(10):
             try:
-                with open(self.path, 'r') as f:
+                with open(self.path, 'r', encoding='utf-8') as f:
                     return f.read()
             except:
                 sleep(0.1)
@@ -129,10 +129,10 @@ class Logger:
         # Wait for the file to be available
         for i in range(10):
             try:
-                with open(self.path, 'r') as f:
+                with open(self.path, 'r', encoding='utf-8') as f:
                     for line in f.readlines():
                         if line.startswith(tag):
-                            return line.split(':')[1].strip()
+                            return ':'.join(line.split(':')[1:]).strip()
                 return None
             except:
                 sleep(0.1)
@@ -151,17 +151,40 @@ def save_webpage(url,
         open_in_browser=True,
         delay=None,
         threaded=None,
-        logger=NullLogger()):
+        logger=NullLogger(),
+        html_path=None,
+        ):
     
     url = url.replace('\\', '/').strip()
     
     config = get_config(url, project_folder, project_name, bypass_robots, debug, delay, threaded)
     config['encoding'] = 'utf-8'
     page = config.create_page()
-    page.get(url, headers={'User-Agent': 'Mozilla/5.0',})
+    headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36'}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+        "Accept": "*/*",
+        "Accept-Language": "ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3",
+        "X-Goog-Api-Key": "AIzaSyDyT5W0Jh49F30Pqqtyfdf7pDLFKLJoAnw",
+        "Content-Type": "application/json+protobuf",
+        "X-User-Agent": "grpc-web-javascript/0.1",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site"
+    }
+    
+    print(f"[save_webpage] url:{url} folder:{project_folder} name:{project_name}")
+    page.get(url, headers=headers)
+    page.retrieve()
+    page.scheduler.handle_resource(page)
 
-    page.save_complete(pop=False)
-
+    
+    # Check the download process is completed
+    ## We cannot check the download process is completed by the page.save_complete() method
+    sleep(3)
+    
+    print(f"[save_webpage] Downloaded {url}")
+    
     # Fixing corrupted js files
     fixing_count = 0
     
@@ -175,29 +198,34 @@ def save_webpage(url,
     print(len(js_path_list), "js files found.")
     logger.writeline(f"JS:{len(js_path_list)}")
     for target in js_path_list:
-        if target.endswith('.js'):
+        if not target.endswith('.js'): continue
+        for type in ['ANSI', 'UTF-8', 'UTF-8-SIG', 'UTF-16', 'UTF-32']:
             try:
-                with open(target, 'r', encoding='utf-8') as f:
-                    data = f.read()
-            except:
-                # If error occurs,
-                # Read and decompress the corrupted Gzip file
-                print(f"Decompressing {target}...")
-                logger.writeline(f"Decompressing:{target}")
-                with open(target, "rb") as f:
-                    with gzip.GzipFile(fileobj=f) as gz:
-                        decompressed_data = gz.read()
+                try:
+                    with open(target, 'r', encoding=type) as f: data = f.read()
+                    break
+                except:
+                    # If error occurs,
+                    # Read and decompress the corrupted Gzip file
+                    print(f"Decompressing {target}...")
+                    logger.writeline(f"Decompressing:{target}")
+                    with open(target, "rb") as f:
+                        with gzip.GzipFile(fileobj=f) as gz:
+                            decompressed_data = gz.read()
 
-                # Save or process the decompressed data
-                data = decompressed_data.decode("utf-8")
-                with open(target, 'w', encoding='utf-8') as f:
-                    f.write(data)
-                fixing_count += 1
+                    # Save or process the decompressed data
+                    data = decompressed_data.decode(type)
+                    with open(target, 'w', encoding=type) as f:
+                        f.write(data)
+                    fixing_count += 1
+                    break
+            except:
+                pass
     
     if fixing_count > 0:
         print(f"Fixed {fixing_count} corrupted js files by decompressing them.")
 
-def download_html(url, folder_name, logger:Logger):
+def download_html(url, folder_name, logger:Logger, skipDownload=False) -> bool:
     url = url.replace('\\', '/').strip()
     folder_name = folder_name.replace('\\', '/').strip()
     
@@ -205,7 +233,6 @@ def download_html(url, folder_name, logger:Logger):
     
     abs_path = os.path.abspath(folder_name)
     abs_folder_path = os.path.dirname(abs_path)
-    # abs_folder_name = abs_path.split('/')[-1]
     abs_folder_name = os.path.basename(abs_path)
     
     
@@ -215,10 +242,24 @@ def download_html(url, folder_name, logger:Logger):
     # Add log file
     logger.writeline(f"URL:{url}")
     logger.writeline(f"Folder:{folder_name}")
+    
+    # Load the HTML file
+    html_path = os.path.join(folder_name, url.replace('https://', '').replace('http://', '').replace('\\', '/').replace('/ ', '/').replace(' /', '/').replace(' ', "_"), 'index.html').replace('\\', '/')
 
     # Download the main HTML file
-    save_webpage(url, abs_folder_path, project_name=abs_folder_name, bypass_robots=True, open_in_browser=False, debug=False, threaded=False)
+    try:
+        if(not skipDownload):
+            save_webpage(url, abs_folder_path, project_name=abs_folder_name, bypass_robots=True, open_in_browser=False, debug=False, threaded=False, html_path=html_path, logger=logger)
+        
+        with open(html_path, 'r', encoding='UTF-8') as f:
+            html = f.read()
+    except Exception as e:
+        print("Failed to download the HTML file")
+        logger.writeline(f"Error:Failed to download the HTML file")
+        logger.writeline(f"FATAL:{url, html_path}")
+        return False
     
+
     
     # Inject js to the end of the body
     from .utils import get_inject_script
@@ -227,11 +268,6 @@ def download_html(url, folder_name, logger:Logger):
     ## Mapping
     script = script.replace('__target_url__', url.strip())
     script = script.replace('__version__', version)
-    
-    # Load the HTML file
-    html_path = os.path.join(folder_name, url.replace('https://', '').replace('http://', ''), 'index.html')
-    with open(html_path, 'r', encoding='UTF-8') as f:
-        html = f.read()
         
     soup = BeautifulSoup(html, 'html.parser')
     body = soup.find('body')
@@ -246,11 +282,12 @@ def download_html(url, folder_name, logger:Logger):
 
     logger.writeline(f"HTML:{html_path}")
     print(f"HTML and assets saved in {folder_name}")
+    return True
 
 
 
 
-def download_project(url, logger:Logger, run_ICC_UP = False):
+def download_project(url, logger:Logger, run_ICC_UP = True, skipDownload=False) -> bool:
     
     HTML = logger.readTag("HTML").replace("index.html", "")
     if HTML == None:
@@ -264,49 +301,70 @@ def download_project(url, logger:Logger, run_ICC_UP = False):
     logger.writeline(f"RunICC_UP:{run_ICC_UP}")
     logger.writeline(f"Folder:{folder_name}")
 
-    if (url.startswith('http')):
-        if(url.endswith("/")):
-            url = url[:-1]
+    # if (url.startswith('http')):
+    if(url.endswith("/")):
+        url = url[:-1]
+    
+    if (url.endswith("index.html")):
+        url = url.replace("index.html", "")
 
-        if(not url.endswith("project.json")):
-            url += "/project.json"
+    if(not url.endswith("project.json")):
+        url += "/project.json"
 
     
-
-    # Fetch project.json
-    print("\nfetching project.json from: ", url)
-    res = get(url)
-    
-    if(not res.status_code == 200):
-        print("Failed to fetch project.json")
-        logger.writeline(f"Error:Failed to fetch project.json {res.status_code}")
-        # input("Press any key to exit")
-        # exit()
-        return
-
-    # Save project.json
     os.makedirs(folder_name, exist_ok=True)
     file_path = os.path.join(folder_name, 'project.json')
     
-    with open(file_path, 'w', encoding='utf8') as f:
-        f.write(res.text)
+    if not skipDownload:
+        # Fetch project.json
+        print("\nfetching project.json from: ", url)
+        res = get(url)
+        
+        if(not res.status_code == 200):
+            print("Failed to fetch project.json")
+            logger.writeline(f"Error:Failed to fetch project.json {res.status_code}")
+            # Is the project merged into app.js? idk
+            
+            logger.writeline(f"FATAL:{url}")
+            return False
 
-    res_text = res.text
+        # Save project.json
+        with open(file_path, 'w', encoding='utf8') as f:
+            f.write(res.text)
+
+    with open(file_path, 'r', encoding='utf8') as f:
+        res_text = f.read()
     
-    l = re.findall(r'mage":"[^(data:)].*"', res_text.replace(",", "\n"))
+    l = re.findall(r'mage":"[^(data:)].*"', res_text.replace(",", "\n").replace(' ', ''))
     
     if len(l) > 0:
         print("*** The project.json has images that are not in the project folder. ***")
         logger.writeline(f"log:*** The project.json has images that are not in the project folder. ***")
         logger.writeline(f"Images:{len(l)}")
         
-        l = [i.split("\"")[2] for i in l]
+        new_l = []
+        for i in l:
+            try:
+                new_l.append(i.split("\"")[2])
+            except:
+                print("Error:", i)
+                logger.writeline(f"Error:{i}")
+                continue
+        l = new_l
         
         # Download images
         print(f"Downloading {len(l)} images...")
+        
+        # define tqdm
+        pbar = tqdm(l)
 
-        for img in tqdm(l):
-            img_url = os.path.join(os.path.dirname(url), img).replace("\\", "/")
+        for img in pbar:
+            if not img.startswith('http'):
+                img_url = os.path.join(os.path.dirname(url), img).replace("\\", "/")
+            else:
+                img_url = img
+                img = 'img/' + img.split("/")[-1]
+                                
             path = os.path.join(folder_name, img)
             
             # Check if the image already exists 
@@ -315,7 +373,7 @@ def download_project(url, logger:Logger, run_ICC_UP = False):
             
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'wb', ) as f:
-                print(img_url)
+                pbar.set_description(f"Downloading {img}")
                 f.write(get(img_url).content)
         
         # Convert to webp
@@ -349,33 +407,59 @@ def download_project(url, logger:Logger, run_ICC_UP = False):
         except: 
             logger.writeline(f"Error:Failed to run ICC_UP")
             print("Failed to run ICC_UP")
+            return False
         print("ICC_UP done!")
+    
+    return True
 
-def find_thumbnails(logger:Logger, save_thumbnail = True):
+def find_thumbnails(logger:Logger, save_thumbnail = True) -> bool:
     print("Finding thumbnails...")
     logger.writeline(f"Finding thumbnails...")
     
-    HTML = logger.readTag("HTML").replace("index.html", "")
+    HTML = logger.readTag("HTML")
     if HTML == None:
         print("HTML not found")
         logger.writeline(f"Error:HTML not found")
-        return
+        return False
+    HTML = HTML.replace("index.html", "")
     
     folder_name = os.path.dirname(HTML)
 
     data = []
-    img_folder = os.path.join(folder_name, 'img')
-    try:
-        for file_name in tqdm(os.listdir(img_folder)):
-            faces = lbp_anime_face_detect(os.path.join(img_folder, file_name))
-
-            # Just dealing with one face for now
-            if len(faces[0]) >= 1:# and faces[2][0] > 1.0:
-                data.append((file_name, faces))
-    except:
+    if(os.path.exists(os.path.join(folder_name, 'images'))):
+        img_folder = os.path.join(folder_name, 'images')
+        
+    elif(os.path.exists(os.path.join(folder_name, 'img'))):
+        img_folder = os.path.join(folder_name, 'img')
+        
+    else:
         print("Error:Failed to find images")
         logger.writeline(f"Error:Failed to find images")
-        return
+        return True
+    
+    print('[find_thumbnails] img_folder:', img_folder)
+    try:
+        for file_name in os.listdir(img_folder):
+            if 'thumbnail_' in file_name:
+                print(f"[find_thumbnails] Already thumbnail generated {file_name}")
+                return True
+
+        pbar = tqdm(os.listdir(img_folder))
+        for file_name in pbar:
+            pbar.set_description(f"Processing {file_name}")
+            try:
+                faces = lbp_anime_face_detect(os.path.join(img_folder, file_name))
+                # Just dealing with one face for now
+                if len(faces[0]) >= 1:# and faces[2][0] > 1.0:
+                    data.append((file_name, faces))
+            except:
+                print(f"Error:Failed to detect faces {file_name}. Skipping...")
+                continue
+
+    except:
+        print("Error:Failed to detect images")
+        logger.writeline(f"Error:Failed to detect images")
+        return True
 
     # Sort by score (face[2][0])
     # data.sort(key=lambda x: x[1][2][0], reverse=True)
@@ -383,7 +467,7 @@ def find_thumbnails(logger:Logger, save_thumbnail = True):
     if len(data) == 0:
         print("No faces found.")
         logger.writeline(f"No faces found.")
-        return
+        return True
     
     count = 0
     for i, (file_name, faces) in enumerate(data):        
@@ -400,7 +484,7 @@ def find_thumbnails(logger:Logger, save_thumbnail = True):
             continue
 
         # Save as thumbnail
-        thumbnail_path = os.path.join(folder_name, 'img', 'thumbnail_' + file_name)
+        thumbnail_path = os.path.join(img_folder, 'thumbnail_' + file_name)
         with Image.open(img_folder + '/' + file_name) as img:
             img.crop((x, y, x+w, y+h)).save(thumbnail_path, 'webp')
 
@@ -423,25 +507,26 @@ def find_thumbnails(logger:Logger, save_thumbnail = True):
                 continue
 
             # Save as thumbnail
-            thumbnail_path = os.path.join(folder_name, 'img', 'thumbnail_' + file_name)
+            thumbnail_path = os.path.join(img_folder, 'thumbnail_' + file_name)
             with Image.open(img_folder + '/' + file_name) as img:
                 img.crop((x, y, x+w, y+h)).save(thumbnail_path, 'webp')
 
             print(f"Thumbnail saved as {thumbnail_path}")
             logger.writeline(f"Thumbnail saved as {thumbnail_path}")
             count += 1
-
+            
+    return True
     
 
 
-def main(url):
+def main(url) -> bool:
     folder_name = os.path.join('downloads', string_to_path(url))
-
     logger = Logger(folder_name)    
     
-    download_html(url, folder_name, logger)
-    download_project(url, logger, True)
-    find_thumbnails(logger)
+    res = True and download_html(url, folder_name, logger)
+    res = res and download_project(url, logger, True)
+    res = res and find_thumbnails(logger)
+    return res
 
 
 if __name__ == '__main__':
