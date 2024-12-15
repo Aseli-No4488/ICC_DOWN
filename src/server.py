@@ -1,33 +1,28 @@
 import os
-import json
-import re
 import urllib.parse
-from random import sample
 from shutil import rmtree
+
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from webbrowser import open as webbrowser_open
 
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import List
+
+from webbrowser import open as webbrowser_open
 from .download import main as download, Logger
-from .utils import removeAllURLTrash
+
+import os
+from random import sample
+import re
+import sys
+import asyncio
 
 # Change working directory
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# Load interactive data
-with open('../../neocities/cyoa-boat-1/interactive.json', 'r', encoding='utf-8') as f:
-    interactive_data = json.load(f)
-
 app = FastAPI()
 
-def findData(original_url):
-    for item in interactive_data:
-        if removeAllURLTrash(item['url']) in removeAllURLTrash(original_url):
-            return item
-        if removeAllURLTrash(original_url) in removeAllURLTrash(item['url']):
-            return item
-    return None
 
 def parse_log(lines, text, undefined=''):
     for line in lines:
@@ -69,17 +64,8 @@ def get_download_list():
         projectType = parse_log(lines, 'ProjectType', 'Unknown')
         fatal = parse_log(lines, 'FATAL', 'False')
 
-        # Matching with interactive.json
-        item = findData(original_url)
 
         title = getTitle(project_folder)
-
-        if title == project_folder:
-            try:
-                title = item['title']
-            except:
-                print(f"Title not found for {project_folder}")
-                raise Exception('Title not found')
 
         result.append({
             'title': title,
@@ -90,7 +76,6 @@ def get_download_list():
             'folder': folder,
             'thumbnail': getMainImage(project_folder),
             'fatal': not (fatal == 'False'),
-            'interactive': item,
             'tag': parse_log_all(lines, 'TAG', 'None')
         })
 
@@ -150,6 +135,39 @@ def getTitle(project_folder):
 
     return project_folder
 
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_message(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # Keep the connection alive
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+def print(*args):
+    message = ' > '+' '.join(map(str, args))
+    sys.stdout.write(f"\r{message}\n")
+    asyncio.run(manager.send_message(message))
+    
+
 @app.post("/api/download/{url_path:path}")
 def api_download(url_path: str):
     try:
@@ -166,7 +184,7 @@ def api_download(url_path: str):
             url += '/'
 
         print(f"[Server] Downloading {url}")
-        res = download(url)
+        res = download(url, print)
         if not res:
             raise Exception('Download failed.')
 
@@ -217,6 +235,7 @@ def api_get_log(folder: str):
     folder = urllib.parse.unquote(folder)
     logger = Logger(folder)
     return Response(content=logger.read(), media_type="text/plain")
+
 
 # Serve static files
 # If you want to serve the current directory as static, 

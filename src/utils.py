@@ -4,7 +4,8 @@ from pathlib import Path
 from requests import get
 import urllib
 
-version = '000a'
+
+version = '002b'
 
 banwords = ['https', 'http', 'org', 'com', 'neocities', 'google', 'www', '//']
 def string_to_path(string):
@@ -46,7 +47,6 @@ def convert_to(source, file_format = 'webp'):
     image.save(destination, format=file_format)  # Convert image to webp
     
     return destination
-
 
 
 import cv2

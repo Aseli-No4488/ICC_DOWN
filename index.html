@@ -203,7 +203,7 @@
   </head>
   <body>
     <div id="background"></div>
-    <h1>ICC DOWN Ver X</h1>
+    <h1>ICC DOWN Ver 2</h1>
     <div style="width: 100%; text-align: center">
       <p>빌드는 창작을 부르는 창작이다.</p>
     </div>
@@ -221,36 +221,6 @@
         const blob = document.createElement("div");
 
         blob.className = "blob";
-        // blob.style.left = `${Math.random() * 100}vw`;
-        // blob.style.top = `${Math.random() * 100}vh`;
-
-        // blob.style.width = `${(Math.random() / 2 + 0.5) * 50}vw`;
-        // blob.style.height = blob.style.width;
-
-        // blob.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
-
-        // // animation using js
-        // const randomX = Math.random() * 100;
-        // const randomY = Math.random() * 100;
-
-        // const animation = blob.animate(
-        //   [
-        //     {
-        //       transform: `translate(-50%, -50%) translate(${randomX}vw, ${randomY}vh) scale(1)`,
-        //     },
-        //     {
-        //       transform: `translate(-50%, -50%) translate(${randomX}vw, ${randomY}vh) scale(1.5)`,
-        //     },
-        //     {
-        //       transform: `translate(-50%, -50%) translate(${randomX}vw, ${randomY}vh) scale(1)`,
-        //     },
-        //   ],
-        //   {
-        //     duration: (Math.random() + 1) * 2000,
-        //     iterations: Infinity,
-        //     timing: "ease-in-out",
-        //   }
-        // );
 
         background.appendChild(blob);
       });
@@ -267,17 +237,35 @@
       //   fetch("/api/close", { method: "POST" });
       // };
 
+      // socket connection
+      const socket = new WebSocket("ws://localhost:8012/ws");
+
+      socket.onmessage = function (event) {
+        const logger =
+          document.getElementById("logger") ?? document.createElement("p");
+        logger.textContent = event.data;
+      };
+
+      socket.onopen = function (event) {
+        console.log("WebSocket connection established");
+      };
+
+      socket.onclose = function (event) {
+        console.log("WebSocket connection closed");
+      };
+
+      socket.onerror = function (error) {
+        console.error("WebSocket error:", error);
+      };
+
       // If enter key is pressed, download the website
-      /*
       document.getElementById("urlInput").addEventListener("keyup", (event) => {
         // If the input field is focused and the user presses enter key
         if (event.target !== document.getElementById("urlInput")) return;
-
         if (event.key === "Enter") {
           downloadWebsite();
         }
       });
-      */
 
       async function fetchDownloadedList(returnData = false) {
         try {
@@ -334,14 +322,11 @@
                       }')">
                       삭제
                       </button>
-                      <button class="hide-button button" onclick="tagWebsite('${
+                      <!-- <button class="hide-button button" onclick="tagWebsite('${
                         elementData.folder
                       }', 'hide')">
                       숨기기
-                      </button>
-                    <button class='button' onclick="window.open('https://arca.live/b/cyoa/${
-                      elementData.interactive.index
-                    }')">게시글</button>
+                      </button> -->
                     </div>
                     <div>
                         <strong>${title}</strong>
@@ -361,7 +346,7 @@
 
           gtag("event", "start_play", {
             target_url: elementData.url,
-            version: "0.1b",
+            version: "0.2",
           });
 
           window.open(elementData.url, "_blank");
@@ -383,7 +368,7 @@
 
         gtag("event", "start_download", {
           target_url: url,
-          version: "0.1b",
+          version: "0.2b",
         });
 
         try {
@@ -397,6 +382,7 @@
                     <div>
                         <strong>Downloading...</strong>
                         <p>${url}</p>
+                        <p id="logger"></p>
                     </div>
                 `;
           document.getElementById("downloadedList").prepend(listItem);

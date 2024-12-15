@@ -1,8 +1,6 @@
 import os
 from requests import get
-# from pywebcopy import save_webpage
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
 from datetime import datetime
 
 from pywebcopy.configs import default_config
@@ -16,14 +14,14 @@ from tqdm import tqdm
 from pathlib import Path
 from PIL import Image
 
-from .utils import string_to_path, version, convert_to, lbp_anime_face_detect, getDummyProject
+from .utils import string_to_path, version, convert_to, lbp_anime_face_detect
 from .ICC_UP import icc_up
 from time import sleep
 
-from pywebcopy.elements import GenericResource, JSResource
+from pywebcopy.elements import JSResource
 from pywebcopy.parsers import unquote_match
-from functools import partial
-from io import BytesIO
+
+print = print
 
 # Fixing not good JSResource repl method
 def validate_url(url):
@@ -317,7 +315,7 @@ def download_project(url, logger:Logger, run_ICC_UP = True, skipDownload=False) 
     
     if not skipDownload:
         # Fetch project.json
-        print("\nfetching project.json from: ", url)
+        print("fetching project.json from: ", url)
         res = get(url)
         
         if(not res.status_code == 200):
@@ -403,7 +401,7 @@ def download_project(url, logger:Logger, run_ICC_UP = True, skipDownload=False) 
     # Run ICC_UP
     if run_ICC_UP:
         print("Running ICC_UP...")
-        try: icc_up(folder_name, file_path)
+        try: icc_up(folder_name, file_path, print=print)
         except: 
             logger.writeline(f"Error:Failed to run ICC_UP")
             print("Failed to run ICC_UP")
@@ -519,7 +517,10 @@ def find_thumbnails(logger:Logger, save_thumbnail = True) -> bool:
     
 
 
-def main(url) -> bool:
+def main(url, _print=print) -> bool:
+    global print
+    print = _print
+    
     folder_name = os.path.join('downloads', string_to_path(url))
     logger = Logger(folder_name)    
     

@@ -3,8 +3,6 @@ from alive_progress import alive_bar
 
 from pathlib import Path
 from PIL import Image
-# from tkinter import filedialog, messagebox
-# from sys import exit
 
 support_formats = ['webp', 'gif', 'png', 'jpg', 'jpeg']
 __version__ = "1.3c"
@@ -32,13 +30,15 @@ def convert_to(source, file_format = 'webp'):
     
     return destination
 
-def change_base64_to_img(data, format:str, path:str):
+def change_base64_to_img(data, format:str, path:str, print = print):
     l = re.findall(f'data:image\/{format};base64,' + r"[^\",]+\"", data)
     print(f'Find {len(l)} images! - format: {format}')
     
     
     with alive_bar(len(l), title=f'Converting {format} to img...', bar='classic') as bar:
         for i, base64img in enumerate(l):
+            print(f"Converting {format} to img... {i+1}/{len(l)}")
+            
             ## Convert base64 to binary
             imgdata = base64.b64decode(base64img[19+len(format):-1])
             
@@ -53,7 +53,7 @@ def change_base64_to_img(data, format:str, path:str):
     
     return data
 
-def icc_up(main_path, file, logger = None):
+def icc_up(main_path, file, logger = None, print = print):
     
     if not logger == None: logger.writeline(f"ICCUP:version:{__version__}")
     
@@ -73,7 +73,7 @@ def icc_up(main_path, file, logger = None):
 
     # Convert base64 to img
     for format in support_formats:
-        data = change_base64_to_img(data, format, main_path)
+        data = change_base64_to_img(data, format, main_path, print)
     # data = change_base64_to_img(data, 'jpeg', main_path)
     # data = change_base64_to_img(data, 'png', main_path)
     # data = change_base64_to_img(data, 'webp', main_path)
@@ -93,6 +93,7 @@ def icc_up(main_path, file, logger = None):
     ## Convert to webp
     with alive_bar(len(file_list), title='Converting to webp...', bar='classic') as bar:
         for file in file_list:
+            print(f"Converting {file.name} to webp... {file_list.index(file)+1}/{len(file_list)}")
             convert_to(file)
             bar()
         
