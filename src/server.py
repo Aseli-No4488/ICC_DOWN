@@ -1,5 +1,5 @@
 import os
-import urllib.parse
+import urllib.parse, urllib.robotparser
 from shutil import rmtree
 
 from fastapi import FastAPI, HTTPException, Response
@@ -18,8 +18,8 @@ import re
 import sys
 import asyncio
 
-# Change working directory
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# # Change working directory
+# os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI()
 
