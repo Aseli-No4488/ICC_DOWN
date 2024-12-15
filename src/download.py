@@ -1,6 +1,6 @@
 import os
 from requests import get
-from pywebcopy import save_webpage
+# from pywebcopy import save_webpage
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
@@ -9,6 +9,7 @@ from pywebcopy.configs import default_config
 from pywebcopy.configs import get_config
 default_config["encoding"] = "utf-8"
 
+import gzip
 
 import re
 from tqdm import tqdm
@@ -19,25 +20,73 @@ from .utils import string_to_path, version, convert_to, lbp_anime_face_detect
 from .ICC_UP import icc_up
 from time import sleep
 
+from pywebcopy.elements import GenericResource, JSResource
+from pywebcopy.parsers import unquote_match
+from functools import partial
+from io import BytesIO
 
-# def save_webpage(url,
-#               project_folder=None,
-#               project_name=None,
-#               bypass_robots=None,
-#               debug=False,
-#               delay=None,
-#               threaded=None,):
-    
-    
-#     config = get_config(url, project_folder, project_name, bypass_robots, debug, delay, threaded)
-#     page = config.create_page()
-#     page.get(url, headers={'User-Agent': 'Mozilla/5.0',}, encoding='utf-8')
-#     if threaded:
-#         warnings.warn(
-#             "Opening in browser is not supported when threading is enabled!")
-#         open_in_browser = False
-#     page.save_complete(pop=False)
-    
+# Fixing not good JSResource repl method
+def validate_url(url):
+    if not url or not isinstance(url, str):  # Check if the input is a non-empty string
+        return False
+
+    # Regex patterns for valid URLs
+    absolute_url_pattern = re.compile(
+        r"^(https?://[^\s]+)$"  # Matches URLs starting with http or https
+    )
+    relative_url_pattern = re.compile(
+        r"^(\./|\.\./).*"  # Matches relative paths like ./ or ../
+    )
+    domain_only_pattern = re.compile(
+        r"^([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$"  # Matches domain-like URLs like newurl.com
+    )
+
+    # Check if the URL matches any valid pattern
+    if (absolute_url_pattern.match(url) or 
+        relative_url_pattern.match(url) or 
+        domain_only_pattern.match(url)):
+        return True
+
+    return False
+
+def repl(self, match, encoding=None, fmt=None):
+        """
+        Schedules the linked files for downloading then resolves their references.
+        """
+        fmt = fmt or '%s'
+
+        url, _ = unquote_match(match.group(1).decode(encoding), match.start(1))
+        self.logger.debug("Sub-JS resource found: [%s]" % url)
+        
+        # If the URL is invalid, return the original URL
+        if not validate_url(url):
+            print(f"Invalid URL by custom filter: {url} originally {match.group(0)}")
+            
+            # Return original string
+            return match.group(0)
+
+        if not self.scheduler.validate_url(url):
+            print("Invalid URL by default:", url)
+            return url.encode(encoding)
+
+        print("Sub-JS resource found: [%s]" % url)
+        
+        sub_context = self.context.create_new_from_url(url)
+        self.logger.debug('Creating context for url: %s as %s' % (url, sub_context))
+        ans = self.__class__(
+            self.session, self.config, self.scheduler, sub_context
+        )
+        # self.children.add(ans)
+        self.logger.debug("Submitting resource: [%s] to the scheduler." % url)
+        self.scheduler.handle_resource(ans)
+        re_enc = (fmt % ans.resolve(self.filepath)).encode(encoding)
+        self.logger.debug("Re-encoded the resource: [%s] as [%r]" % (url, re_enc))
+        return re_enc
+
+# Replace the repl method of JSResource
+# JSResource.__dict__['repl'] = repl
+setattr(JSResource, 'repl', repl)
+
 
 class Logger:
     def __init__(self, folder_name, null_logger = False):
@@ -89,21 +138,87 @@ class Logger:
                 sleep(0.1)
                 continue
 
+class NullLogger(Logger):
+    def __init__(self):
+        super().__init__("", null_logger=True)
+
+
+def save_webpage(url,
+        project_folder=None,
+        project_name=None,
+        bypass_robots=None,
+        debug=False,
+        open_in_browser=True,
+        delay=None,
+        threaded=None,
+        logger=NullLogger()):
+    
+    url = url.replace('\\', '/').strip()
+    
+    config = get_config(url, project_folder, project_name, bypass_robots, debug, delay, threaded)
+    config['encoding'] = 'utf-8'
+    page = config.create_page()
+    page.get(url, headers={'User-Agent': 'Mozilla/5.0',})
+
+    page.save_complete(pop=False)
+
+    # Fixing corrupted js files
+    fixing_count = 0
+    
+    ## Get all js files tree
+    js_path_list = []
+    for root, dirs, files in os.walk(os.path.join(project_folder, project_name)):
+        for file in files:
+            if file.endswith('.js'):
+                js_path_list.append(os.path.join(root, file))
+                
+    print(len(js_path_list), "js files found.")
+    logger.writeline(f"JS:{len(js_path_list)}")
+    for target in js_path_list:
+        if target.endswith('.js'):
+            try:
+                with open(target, 'r', encoding='utf-8') as f:
+                    data = f.read()
+            except:
+                # If error occurs,
+                # Read and decompress the corrupted Gzip file
+                print(f"Decompressing {target}...")
+                logger.writeline(f"Decompressing:{target}")
+                with open(target, "rb") as f:
+                    with gzip.GzipFile(fileobj=f) as gz:
+                        decompressed_data = gz.read()
+
+                # Save or process the decompressed data
+                data = decompressed_data.decode("utf-8")
+                with open(target, 'w', encoding='utf-8') as f:
+                    f.write(data)
+                fixing_count += 1
+    
+    if fixing_count > 0:
+        print(f"Fixed {fixing_count} corrupted js files by decompressing them.")
 
 def download_html(url, folder_name, logger:Logger):
-    if not os.path.exists(folder_name):
-        os.makedirs(folder_name)
+    url = url.replace('\\', '/').strip()
+    folder_name = folder_name.replace('\\', '/').strip()
+    
+    print(f"[Download HTML] url:{url} folder:{folder_name}")
     
     abs_path = os.path.abspath(folder_name)
-    abs_folder_path = abs_path.split('/')[:-1]
-    abs_folder_name = abs_path.split('/')[-1]
+    abs_folder_path = os.path.dirname(abs_path)
+    # abs_folder_name = abs_path.split('/')[-1]
+    abs_folder_name = os.path.basename(abs_path)
+    
+    
+    if not os.path.exists(abs_folder_path):
+        os.makedirs(abs_folder_path)
     
     # Add log file
     logger.writeline(f"URL:{url}")
     logger.writeline(f"Folder:{folder_name}")
 
     # Download the main HTML file
-    save_webpage(url, abs_folder_path, project_name=abs_folder_name, bypass_robots=True, open_in_browser=False, debug=True)
+    save_webpage(url, abs_folder_path, project_name=abs_folder_name, bypass_robots=True, open_in_browser=False, debug=False, threaded=False)
+    
     
     # Inject js to the end of the body
     from .utils import get_inject_script
