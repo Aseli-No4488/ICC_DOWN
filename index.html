@@ -327,6 +327,12 @@
                       }', 'hide')">
                       숨기기
                       </button> -->
+                      <button class="button" onclick="window.open('${
+                        "./visjs.html?folder=" +
+                        elementData.url.split("/").slice(0, -1).join("/")
+                      }', '_blank')">
+                      펼쳐보기
+                      </button>
                     </div>
                     <div>
                         <strong>${title}</strong>
