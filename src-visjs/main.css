@@ -1,0 +1,53 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgb(240, 240, 240);
+  height: 90%;
+  width: 100%;
+}
+
+#textContainer {
+  height: 10%;
+  font-size: 0.8em;
+  width: 100%;
+
+  margin: auto;
+  margin-top: 1em;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  gap: 0.5em;
+
+  & > div {
+    width: 30%;
+    text-align: center;
+
+    display: flex;
+    justify-content: space-between;
+
+    & > input {
+      width: 70%;
+    }
+    & > button {
+      width: 20%;
+    }
+  }
+}
+
+#main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100dvh;
+
+  width: 100dvw;
+}

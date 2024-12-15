@@ -1,3 +1,4 @@
 alive_progress
 bs4
 opencv-python
+pywebcopy==7.0.2

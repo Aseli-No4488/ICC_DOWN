@@ -3,11 +3,9 @@ from alive_progress import alive_bar
 
 from pathlib import Path
 from PIL import Image
-# from tkinter import filedialog, messagebox
-# from sys import exit
 
 support_formats = ['webp', 'gif', 'png', 'jpg', 'jpeg']
-__version__ = "1.3b"
+__version__ = "1.3c"
 
 def convert_to(source, file_format = 'webp'):
     """Convert image to WebP.
@@ -21,18 +19,26 @@ def convert_to(source, file_format = 'webp'):
     
     destination = source.with_suffix(f".{file_format}")
 
-    image = Image.open(source)  # Open image
-    image.save(destination, format=file_format)  # Convert image to webp
+    try:
+        image = Image.open(source)  # Open image
+        image.save(destination, format=file_format)  # Convert image to webp
+    except Exception as e:
+        print(f"Error converting {source.name} to {file_format}: {e}")
+        
+        # If error, just rename the original file to webp
+        os.rename(source, destination)
     
     return destination
 
-def change_base64_to_img(data, format:str, path:str):
+def change_base64_to_img(data, format:str, path:str, print = print):
     l = re.findall(f'data:image\/{format};base64,' + r"[^\",]+\"", data)
     print(f'Find {len(l)} images! - format: {format}')
     
     
     with alive_bar(len(l), title=f'Converting {format} to img...', bar='classic') as bar:
         for i, base64img in enumerate(l):
+            print(f"Converting {format} to img... {i+1}/{len(l)}")
+            
             ## Convert base64 to binary
             imgdata = base64.b64decode(base64img[19+len(format):-1])
             
@@ -47,7 +53,7 @@ def change_base64_to_img(data, format:str, path:str):
     
     return data
 
-def icc_up(main_path, file, logger = None):
+def icc_up(main_path, file, logger = None, print = print):
     
     if not logger == None: logger.writeline(f"ICCUP:version:{__version__}")
     
@@ -67,7 +73,7 @@ def icc_up(main_path, file, logger = None):
 
     # Convert base64 to img
     for format in support_formats:
-        data = change_base64_to_img(data, format, main_path)
+        data = change_base64_to_img(data, format, main_path, print)
     # data = change_base64_to_img(data, 'jpeg', main_path)
     # data = change_base64_to_img(data, 'png', main_path)
     # data = change_base64_to_img(data, 'webp', main_path)
@@ -87,6 +93,7 @@ def icc_up(main_path, file, logger = None):
     ## Convert to webp
     with alive_bar(len(file_list), title='Converting to webp...', bar='classic') as bar:
         for file in file_list:
+            print(f"Converting {file.name} to webp... {file_list.index(file)+1}/{len(file_list)}")
             convert_to(file)
             bar()
         
@@ -104,12 +111,13 @@ def icc_up(main_path, file, logger = None):
     ## Delete old image
     with alive_bar(len(file_list), title='Deleting old image...', bar='classic') as bar:
         for file in file_list:
-            
-            # Delete old image
-            if any([format in str(file) for format in support_formats]):
-            #if ('jpg' in str(file)) or ('jpeg' in str(file)) or ('png' in str(file)) or ('gif' in str(file)):
-                os.remove(file)
-                
+            try:
+                # Delete old image
+                if any([format in str(file) for format in support_formats]):
+                #if ('jpg' in str(file)) or ('jpeg' in str(file)) or ('png' in str(file)) or ('gif' in str(file)):
+                    os.remove(file)
+            except:
+                print(f"Error deleting {file}. Skip!")
             # Update progress bar
             bar()
         
