@@ -14,7 +14,7 @@ from tqdm import tqdm
 from pathlib import Path
 from PIL import Image
 
-from .utils import string_to_path, version, convert_to, lbp_anime_face_detect
+from .utils import string_to_path, version, convert_to, lbp_anime_face_detect, extract_json
 from .ICC_UP import icc_up
 from time import sleep
 
@@ -317,17 +317,31 @@ def download_project(url, logger:Logger, run_ICC_UP = True, skipDownload=False) 
         print("fetching project.json from: ", url)
         res = get(url)
         
+        
         if(not res.status_code == 200):
             print("Failed to fetch project.json")
             logger.writeline(f"Error:Failed to fetch project.json {res.status_code}")
             # Is the project merged into app.js? idk
             
-            logger.writeline(f"FATAL:{url}")
-            return False
+            # Check js/app.c533aa25.js
+            ## If exists, extract project.json from it
+            if not os.path.exists(os.path.join(folder_name, 'js/app.c533aa25.js')):
+                print("Failed to get app.c533aa25.js")
+                logger.writeline(f"Error:Failed to get app.c533aa25.js {res.status_code}")
+                logger.writeline(f"FATAL:{url}")
+                return False
+                
+            with open(os.path.join(folder_name, 'js/app.c533aa25.js'), 'r', encoding='utf8') as f:
+                raw_js = f.read()
+        
+            res_text = extract_json(raw_js)
+                
 
+        else: res_text = res.text
+        
         # Save project.json
         with open(file_path, 'w', encoding='utf8') as f:
-            f.write(res.text)
+            f.write(res_text)
 
     with open(file_path, 'r', encoding='utf8') as f:
         res_text = f.read()
