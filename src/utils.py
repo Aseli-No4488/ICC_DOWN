@@ -5,7 +5,7 @@ from requests import get
 import urllib
 
 
-version = '002b'
+version = '003b'
 
 banwords = ['https', 'http', 'org', 'com', 'neocities', 'google', 'www', '//']
 def string_to_path(string):
@@ -74,7 +74,36 @@ def lbp_anime_face_detect(file_name):
     
     return faces
 
+import json
+def extract_json(target:str):
+    starting_word = '{"isEditModeOnAll":'
 
+    # Find the position where starting word first appears
+    start = target.find(starting_word)
+
+    pointer = int(start)
+    print(target[pointer:pointer+10])
+    
+    braket_count = 0
+    
+    while pointer < len(target):
+      if target[pointer] == '{':
+          braket_count += 1
+      elif target[pointer] == '}':
+          braket_count -= 1
+      if braket_count == 0:
+          print(f"Found the json of the length {pointer-start+1}")
+          break
+      pointer += 1
+    else:
+      raise ValueError("JSON not found")
+
+    json_text = target[start:pointer+1]
+
+    # Trying to parse json
+    parsed = json.loads(json_text)
+
+    return json_text
 
 def get_inject_script():
     return """

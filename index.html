@@ -203,7 +203,7 @@
   </head>
   <body>
     <div id="background"></div>
-    <h1>ICC DOWN Ver 2</h1>
+    <h1>ICC DOWN Ver 3</h1>
     <div style="width: 100%; text-align: center">
       <p>빌드는 창작을 부르는 창작이다.</p>
     </div>
@@ -286,10 +286,11 @@
         const downloadedList = document.getElementById("downloadedList");
         downloadedList.innerHTML = "";
 
-        for (let item of list.sort((a, b) =>
-          //-new Date(b.downloaded_date).getTime() +
-          //new Date(a.downloaded_date).getTime()
-          b.original_url.localeCompare(a.original_url)
+        for (let item of list.sort(
+          (a, b) =>
+            -new Date(b.downloaded_date).getTime() +
+            new Date(a.downloaded_date).getTime()
+          // b.original_url.localeCompare(a.original_url)
         )) {
           renderDownloadElement(item);
         }

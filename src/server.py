@@ -106,7 +106,31 @@ def getMainImage(folder):
         print(e)
         return None
 
+import json
 def getTitle(project_folder):
+    # Find the title in the title.json
+    title_json_path = 'src/title.json'
+    
+    with open(title_json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    if project_folder in data:
+        return data[project_folder]
+    
+    print(f"Newly generate the title for {project_folder}")
+        
+    
+    title = generateTitle(project_folder)
+    
+    if title is not None:
+        data[project_folder] = title
+        with open(title_json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    
+    return title
+        
+
+def generateTitle(project_folder):
     # Get title from html
     try:
         with open(os.path.join(project_folder, 'index.html'), 'r', encoding='utf-8') as f:
@@ -132,7 +156,21 @@ def getTitle(project_folder):
             return ' '.join(min(titles, key=len).split('"')[-2:-1]).strip()
     except:
         pass
+    
+    # # Get title from interactive.json
+    # with open("../neocities/cyoa-boat-1/interactive.json", 'r', encoding='utf-8') as f:
+    #     data = json.load(f)
+    
+    # # Find most similar url
+    # project_url = "/".join(project_folder.split('/')[2:]).replace("https://", "").replace("http://", "").replace("/", "")
+    # for d in data:
+    #     url = d['url'].replace("https://", "").replace("http://", "").replace("/", "")
 
+    #     # Compare the url
+    #     if url == project_url:
+    #         return d['title']
+        
+    
     return project_folder
 
 

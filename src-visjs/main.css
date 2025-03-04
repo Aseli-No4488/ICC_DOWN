@@ -11,14 +11,55 @@ body {
   height: 90%;
   width: 100%;
 }
+/* Text selection prevention */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
 
-#textContainer {
+button {
+  padding: 0.5em;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f1f1f1;
+
+  transition: 0.3s;
+}
+
+button:hover {
+  background-color: white;
+  border: 1px solid #ccc;
+}
+
+#userInterface {
   height: 10%;
-  font-size: 0.8em;
   width: 100%;
+  background-color: #ccc;
 
-  margin: auto;
-  margin-top: 1em;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+
+  gap: 2em;
+
+  padding: 0.5em;
+
+  & > div {
+    border-radius: 5px;
+    height: calc(100% - 2em);
+    padding: 1em;
+
+    background-color: white;
+  }
+}
+
+#userInterface > div:first-child {
+  width: 40%;
 
   display: flex;
   flex-direction: column;
@@ -27,8 +68,10 @@ body {
 
   gap: 0.5em;
 
+  font-size: 0.8em;
+
   & > div {
-    width: 30%;
+    width: 100%;
     text-align: center;
 
     display: flex;
@@ -36,10 +79,58 @@ body {
 
     & > input {
       width: 70%;
+
+      /* Cool search bar */
+      padding: 0.5em;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f1f1f1;
+
+      transition: 0.3s;
+
+      &:focus {
+        background-color: white;
+        border: 1px solid #ccc;
+      }
     }
+
     & > button {
       width: 20%;
     }
+  }
+}
+
+#userInterface > .vl {
+  border-left: 1px solid white;
+  height: calc(100% - 2em);
+
+  padding: 0 !important;
+  margin: 0;
+  border-radius: 0;
+}
+
+#userInterface > div:last-child {
+  max-width: 50%;
+  height: calc(100% - 2em);
+  padding: 1em;
+
+  background-color: white;
+
+  display: flex;
+  flex-direction: row;
+  /* justify-content: center; */
+  align-items: center;
+
+  flex-wrap: wrap;
+  gap: 1em;
+  row-gap: 0;
+
+  & > * {
+    flex: 0 1 150px;
+    height: calc(50% - 1em);
+    border-right: 1px solid #ccc;
+
+    font-size: 0.8em;
   }
 }
 
