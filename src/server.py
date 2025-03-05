@@ -111,6 +111,11 @@ def getTitle(project_folder):
     # Find the title in the title.json
     title_json_path = 'src/title.json'
     
+    ## Check if the title.json exists
+    if not os.path.exists(title_json_path):
+        with open(title_json_path, 'w', encoding='utf-8') as f:
+            json.dump({}, f, ensure_ascii=False, indent=4)
+    
     with open(title_json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
