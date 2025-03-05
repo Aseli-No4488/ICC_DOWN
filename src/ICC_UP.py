@@ -4,7 +4,7 @@ from alive_progress import alive_bar
 from pathlib import Path
 from PIL import Image
 
-support_formats = ['webp', 'gif', 'png', 'jpg', 'jpeg']
+support_formats = ['webp', 'gif', 'png', 'jpg', 'jpeg', 'avif']
 __version__ = "1.3c"
 
 def convert_to(source, file_format = 'webp'):

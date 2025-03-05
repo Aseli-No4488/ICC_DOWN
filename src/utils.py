@@ -1,5 +1,6 @@
 import datetime
 from PIL import Image
+import pillow_avif
 from pathlib import Path
 from requests import get
 import urllib
@@ -31,7 +32,8 @@ def string_to_path(string):
 
 removeAllURLTrash = lambda x: urllib.parse.unquote(x).replace('http://', '').replace('https://', '').replace('/', '')
 
-def convert_to(source, file_format = 'webp'):
+
+def convert_to(source:Path, file_format:str = 'webp'):
     """Convert image to WebP.
 
     Args:
